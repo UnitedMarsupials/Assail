@@ -1,4 +1,4 @@
-loadplugin AI /opt/etc/mail/spamassassin/AI/AI.pm
+loadplugin AI AI/AI.pm
 
 # Structural Rule Definitions (Users shouldn't touch these)
 header		AI_RUN_EVAL	eval:check_ai()
