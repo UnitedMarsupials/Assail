@@ -1,0 +1,12 @@
+# Backend Connection
+ai_url		http://tulik:8080/v1/chat/completions
+ai_max_size	10000
+ai_language	Ukrainian
+
+# Scoring (The only thing most users care about)
+score		AI_SPAM		5.0
+score		AI_HAM		-1.0
+score		AI_UNSURE	0.01
+score		AI_ERROR	0.0
+
+add_header all Report AI Verdict: (_AI_STATUS_)

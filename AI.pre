@@ -1,0 +1,14 @@
+loadplugin AI /opt/etc/mail/spamassassin/AI/AI.pm
+
+# Structural Rule Definitions (Users shouldn't touch these)
+header		AI_RUN_EVAL	eval:check_ai()
+priority	AI_RUN_EVAL	601
+
+meta		AI_SPAM		0
+describe	AI_SPAM		AI verdict: _AI_STATUS_
+meta		AI_HAM		0
+describe	AI_HAM		AI verdict: _AI_STATUS_
+meta		AI_UNSURE	0
+describe	AI_UNSURE	AI verdict: _AI_STATUS_
+meta		AI_ERROR	0
+describe	AI_ERROR	AI Server connection failed
