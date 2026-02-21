@@ -3,3 +3,16 @@
 The plugin will submit every email -- a textual portion of one --
 to the specified AI-instance inviting it to opine, on whether the
 message is a spam.
+
+Tested with a locally-running llama-server, but is likely to work
+with anything else supporting the OpenAI REST API.
+
+## Installation instructions
+
+Save the `AI.pre` and `AI.cf` files into your SpamAssassin configuration
+directory -- next to the `local.cf`. Save the entire `AI/` subdirectory
+into the same location.
+
+Edit the `AI.cf` to configure the AI-server location and other aspects.
+
+Restart spamd -- if that's, how you use SpamAssassin.

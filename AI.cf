@@ -1,5 +1,5 @@
 # Backend Connection
-ai_url		http://tulik:8080/v1/chat/completions
+ai_url		http://localhost:8080/v1/chat/completions
 ai_max_size	10000
 ai_language	Ukrainian
 
