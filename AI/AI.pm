@@ -1,3 +1,4 @@
+# Source should remain 7-bit ASCII
 package AI;
 
 use Mail::SpamAssassin::Plugin;
@@ -10,7 +11,7 @@ use warnings;
 
 our @ISA = qw(Mail::SpamAssassin::Plugin);
 
-# Оптим╕зована обгортка для дебагу: нульове навантаження, якщо -D AI вимкнено
+# Optimized debug wrapper: zero overhead unless -D AI is on
 sub
 dbg
 {
@@ -41,7 +42,7 @@ parse_config($$)
 	my $val = $opts->{value};
 	my $conf = $self->{main}->{conf};
 
-	# Додано ai_language до дозволених параметр╕в
+	# All ai_* directives are handled uniformly
 	if ($key =~ /^ai_(url|max_size|timeout|user_agent|api_key|language)$/) {
 		$conf->{$key} = $val;
 		$self->inhibit_further_callbacks();
@@ -54,7 +55,7 @@ sub
 check_ai($$)
 {
 	my ($self, $pms) = @_;
-	# 1. Ранн╕й вих╕д для локально╖ пошти
+	# 1. Early exit for local (trusted) mail
 	return (0) if $pms->{all_trusted};
 
 	my $conf = $pms->{main}->{conf};
@@ -83,12 +84,12 @@ check_ai($$)
 		}
 
 		my $fname = $p->get_header('content-disposition') // '';
-		$fname = ($fname =~ /filename=["']?([^"';]+)["']?/i) ? " [Filename: $1]" : "";
+		$fname = ($fname =~ /filename=["']?([^"';]+)["']?/i) ? " [Filename: $1]" : '';
 
-		my $new_addition = "";
+		my $new_addition = '';
 
 		if ($ctype =~ m{text/(?:plain|html)}i) {
-			my $body = $p->decode() // "";
+			my $body = $p->decode() // '';
 			next if (length($body) < 5);
 
 			if ($parent->{type} =~ m{multipart/alternative}i) {
@@ -107,7 +108,7 @@ check_ai($$)
 			$new_addition = "--- Attachment: $ctype$fname ($size bytes) ---\n[Binary skipped]\n\n";
 		}
 
-		# Перев╕рка л╕м╕ту перед додаванням
+			# Check size limit before appending
 		my $current_len = length($text);
 		my $addition_len = length($new_addition);
 
@@ -116,45 +117,45 @@ check_ai($$)
 			if ($remaining > 0) {
 				$text .= substr($new_addition, 0, $remaining);
 			}
-			last; # Досягли л╕м╕ту, виходимо з циклу
+			last; # Reached size limit, exit loop
 		}
 
 		$text .= $new_addition;
 	}
 
-	# Перев╕ря╓мо м╕н╕мальний пор╕г (наприклад, 20 символ╕в),
-	# щоб не турбувати Ш╤ через др╕бниц╕
+	# Check minimum text threshold (e.g. 20 characters)
+	# to avoid bothering the AI with trivial content
 	if (length($text) < 20) {
 		dbg("Text too short, only", length($text), "characters");
 		$pms->set_tag('AI_STATUS', "Too little text for AI analysis");
 		return (0);
 	}
 
-	# 3. Форму╓мо запит (Structured Output JSON)
+	# 3. Build the prompt (Structured Output JSON)
 	my $prompt = 'Analyze for spam. Reply ONLY JSON '.
 	    '{verdict:SPAM|HAM|UNSURE, reason:string}. ' .
 	    "Write the 'reason' field in $lang:\n\n" . $text;
 
 	my $payload = {
-		model => "local-model",
-		messages => [{ role => "user", content => $prompt }],
+		model => 'local-model',
+		messages => [{ role => 'user', content => $prompt }],
 		response_format => {
-			type => "json_schema",
+			type => 'json_schema',
 			json_schema => {
-				name => "spam_verdict",
+				name => 'spam_verdict',
 				strict => 1,
 				schema => {
-					type => "object",
+					type => 'object',
 					properties => {
 						verdict => {
-							type => "string",
-							enum => ["SPAM", "HAM", "UNSURE"]
+							type => 'string',
+							enum => ['SPAM', 'HAM', 'UNSURE']
 						},
 						reason  => {
-							type => "string"
+							type => 'string'
 						}
 					},
-					required => ["verdict", "reason"],
+					required => ['verdict', 'reason'],
 					additionalProperties => 0
 				}
 			}
@@ -164,7 +165,7 @@ check_ai($$)
 
 	my $json_body = encode_json($payload);
 
-	# 4. Мережевий запит (Таймаут 120с для 32B модел╕)
+	# 4. Send the request (timeout sized for a 32B model)
 	$ua = LWP::UserAgent->new(timeout => $timeout);
 	$ua->agent($user_agent);
 	$req = HTTP::Request->new(POST => $url);
@@ -176,7 +177,7 @@ check_ai($$)
 	dbg('Response status', $response->status_line);
 	dbg('Response content', $response->decoded_content());
 
-	# Помилка мереж╕
+	# Network error
 	if (!$response->is_success) {
 		my $err = $response->status_line;
 		warn('Network Error: ', $err);
@@ -184,18 +185,18 @@ check_ai($$)
 		return (0);
 	}
 
-	# 5. Обробка результату (llama-server b8064+ format)
+	# 5. Parse the result (llama-server b8064+ format)
 	my $outer = eval { decode_json($response->content) };
 	if ($@ || !$outer) {
-		warn("Failed to parse AI response JSON: ", ($@ // "Invalid structure"));
+		warn('Failed to parse AI response JSON: ', ($@ // "Invalid structure"));
 		$pms->set_tag('AI_STATUS', "Error: Invalid JSON response");
 		return (0);
 	}
 	my $raw = $outer->{choices}->[0]->{message}{content} // '';
 
-	# Помилка структури
+	# Structure error
 	if (!$raw) {
-		warn("Empty or invalid AI response structure");
+		warn('Empty or invalid AI response structure');
 		$pms->set_tag('AI_STATUS', "Error: AI response empty");
 		return (0);
 	}
@@ -204,13 +205,13 @@ check_ai($$)
 
 	my $ai_json = eval { JSON->new->decode($raw) };
 	if ($@ || !$ai_json || !$ai_json->{verdict}) {
-		warn("Malformed JSON content in response:",
+		warn('Malformed JSON content in response:',
 		    ($@ // "Invalid format"));
 		$pms->set_tag('AI_STATUS', "Status: Malformed AI Content");
 		return (0);
 	}
 
-	# Усп╕шний вердикт
+	# Successful verdict
 	my $v = uc($ai_json->{verdict});
 	my $r = $ai_json->{reason} // 'No reason';
 	if ($r =~ /[^\x00-\x7F]/) {
@@ -222,12 +223,12 @@ check_ai($$)
 
 	my $rule = "AI_" . $v;
 
-	# Встановлю╓мо ТЕГИ (set_tag для SA, tag_data для над╕йност╕)
+	# Set tags (set_tag for SA headers, tag_data for reliability)
 	$pms->set_tag('AI_STATUS', $r);
 
 	if (!$pms->got_hit($rule)) {
 		dbg("Rule not found in config:", $rule);
-		$pms->got_hit("AI_UNSURE");
+		$pms->got_hit('AI_UNSURE');
 	}
 
 	return (1);
