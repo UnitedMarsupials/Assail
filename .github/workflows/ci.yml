@@ -22,16 +22,16 @@ jobs:
 
   check-freebsd:
     name: Check (FreeBSD)
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: cross-platform-actions/action@v0.32.0
+      - uses: cross-platform-actions/action@v1.0.0
         with:
           operating_system: freebsd
           version: '14.2'
           run: |
-            sudo pkg install -y spamassassin p5-JSON p5-libwww
+            echo 'pkg install -y spamassassin p5-JSON p5-libwww' | su
             sh ci/check.sh
 
   check-macos:
@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install cpanminus
-          cpanm --notest Mail::SpamAssassin LWP::UserAgent JSON
+          sudo cpanm --notest Mail::SpamAssassin LWP::UserAgent JSON
 
       - name: Run checks
         run: sh ci/check.sh
