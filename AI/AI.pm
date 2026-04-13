@@ -29,7 +29,6 @@ new($$)
 		return (undef);
 	}
 
-	bless($self, $class);
 	$self->register_eval_rule('check_ai');
 	return ($self);
 }
@@ -43,7 +42,7 @@ parse_config($$)
 	my $conf = $self->{main}->{conf};
 
 	# Додано ai_language до дозволених параметр╕в
-	if ($key =~ /^ai_(url|max_size|user_agent|api_key|language)$/) {
+	if ($key =~ /^ai_(url|max_size|timeout|user_agent|api_key|language)$/) {
 		$conf->{$key} = $val;
 		$self->inhibit_further_callbacks();
 		return (1);
@@ -59,20 +58,21 @@ check_ai($$)
 	return (0) if $pms->{all_trusted};
 
 	my $conf = $pms->{main}->{conf};
-	my ($max_size, $url, $user_agent, $api_key, $lang, $ary, $text, $ua, $req, $response);
+	my ($max_size, $url, $user_agent, $api_key, $lang, $timeout, $ary, $text, $ua, $req, $response);
 
-	$max_size   = $conf->{ai_max_size}   || 131072;
-	$url        = $conf->{ai_url}        || 'http://localhost:8080/v1/chat/completions';
+	$max_size   = $conf->{ai_max_size}   // 131072;
+	$url        = $conf->{ai_url}        // 'http://localhost:8080/v1/chat/completions';
 	$user_agent = $conf->{ai_user_agent} // 'SpamAssassin-AI/1.0';
 	$api_key    = $conf->{ai_api_key}    // undef;
 	$lang       = $conf->{ai_language}   // 'English';
+	$timeout    = $conf->{ai_timeout}    // 181;
 
-	$text = "Subject: " . ($pms->get('Subject') // '') . "\n\n";
-	$max_size = $self->{conf}->{ai_max_size} // 12000;
-	$text = "";
+	my $subj = $pms->get('Subject') // '';
+	$subj =~ s/\s+$//;
+	$text = "Subject: $subj\n\n";
 	my %processed_alternatives;
 
-	foreach my $p ($pms->{msg}->find_parts(qr/./)) {
+	foreach my $p ($pms->get_message()->find_parts(qr/./)) {
 		my $ctype = lc($p->get_header('content-type') // 'unknown');
 		my $parent = $p->{parent} // $p;
 
@@ -126,7 +126,7 @@ check_ai($$)
 	# щоб не турбувати Ш╤ через др╕бниц╕
 	if (length($text) < 20) {
 		dbg("Text too short, only", length($text), "characters");
-		pms->set_tag('AI_STATUS', "Too little text for AI analysis");
+		$pms->set_tag('AI_STATUS', "Too little text for AI analysis");
 		return (0);
 	}
 
@@ -165,7 +165,7 @@ check_ai($$)
 	my $json_body = encode_json($payload);
 
 	# 4. Мережевий запит (Таймаут 120с для 32B модел╕)
-	$ua = LWP::UserAgent->new(timeout => 181);
+	$ua = LWP::UserAgent->new(timeout => $timeout);
 	$ua->agent($user_agent);
 	$req = HTTP::Request->new(POST => $url);
 	$req->header('Content-Type' => 'application/json');
@@ -181,19 +181,22 @@ check_ai($$)
 		my $err = $response->status_line;
 		warn('Network Error: ', $err);
 		$pms->set_tag('AI_STATUS', "Error: $err");
-		$pms->got_hit('AI_ERROR');
 		return (0);
 	}
 
 	# 5. Обробка результату (llama-server b8064+ format)
 	my $outer = eval { decode_json($response->content) };
+	if ($@ || !$outer) {
+		warn("Failed to parse AI response JSON: ", ($@ // "Invalid structure"));
+		$pms->set_tag('AI_STATUS', "Error: Invalid JSON response");
+		return (0);
+	}
 	my $raw = $outer->{choices}->[0]->{message}{content} // '';
 
 	# Помилка структури
 	if (!$raw) {
 		warn("Empty or invalid AI response structure");
 		$pms->set_tag('AI_STATUS', "Error: AI response empty");
-		$pms->got_hit("AI_ERROR");
 		return (0);
 	}
 
@@ -204,7 +207,6 @@ check_ai($$)
 		warn("Malformed JSON content in response:",
 		    ($@ // "Invalid format"));
 		$pms->set_tag('AI_STATUS', "Status: Malformed AI Content");
-		$pms->got_hit("AI_ERROR");
 		return (0);
 	}
 
