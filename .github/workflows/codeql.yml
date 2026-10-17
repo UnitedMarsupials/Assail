@@ -1,0 +1,43 @@
+# CodeQL static analysis.  CodeQL cannot read Perl, which is all the plugin
+# is, so what it analyses here is the repository's GitHub Actions workflows:
+# injection through untrusted input, excessive token permissions, unpinned
+# or compromised actions.  Its own workflow, apart from CI: its findings land
+# in the repository's Security tab rather than failing a build.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (Actions)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+          config-file: ./.github/codeql/config.yml
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:actions

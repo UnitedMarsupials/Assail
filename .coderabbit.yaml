@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+#
+# CodeRabbit's pull-request reviews: somewhat pickier than its defaults,
+# without blocking anything.  Anything not set here keeps CodeRabbit's
+# default.  The GitHub App must be installed on the repository for this file
+# to take effect; it configures the app, it does not enable it.
+language: en-US
+
+reviews:
+  # `assertive` rather than the default `chill`: every remark is posted
+  # inline on the line it is about, instead of the less certain ones being
+  # folded into a collapsed "nitpicks" section of the summary comment.
+  profile: assertive
+  request_changes_workflow: false
+
+  # What this plugin gets wrong easily (see AGENTS.md), so that the extra
+  # attention goes where it is worth something.
+  path_instructions:
+    - path: "AI/AI.pm"
+      instructions: |
+        This is a SpamAssassin plugin that sends the text of every message to
+        an LLM and scores the answer.  Read the whole function around each
+        change, not only the changed lines, and report problems you find
+        there as well, saying that they predate the change.
+        - Everything in the message is attacker-controlled, including what
+          the LLM makes of it.  The verdict must be checked against the
+          known values (SPAM, HAM, UNSURE) before it names a rule, and the
+          LLM's "reason" text, which ends up in a mail header through
+          _AI_STATUS_, must not be able to inject headers or break one
+          (newlines, control characters, excessive length).
+        - Errors must not decide a message's fate: an unreachable server,
+          a timeout, malformed JSON or an unknown verdict leave the score
+          alone (return (0) with a tag set), and never die inside the eval.
+        - Configuration defaults use `//`, never `||`, so that a configured
+          0 or empty string survives.  Values read from configuration
+          (ai_timeout, ai_max_size) are validated before use.
+        - The API key must never appear in a log line, a debug message or a
+          header; flag sending it over plain http to anything but localhost.
+        - ai_max_size limits what is sent; check the arithmetic and that no
+          path appends past it, and that multi-byte text is not cut in the
+          middle of a character.
+        - SpamAssassin API: the constructor must not bless again;
+          get_message() rather than $pms->{msg}; got_hit() only to
+          activate the named rules, never to signal an error.
+        - The file stays 7-bit ASCII (CI checks it), and Perl warnings are
+          on: flag anything that would warn on an undef.
+        - Style is BSD style(9) as applied to Perl, per AGENTS.md: tabs,
+          four-space continuation lines, single quotes unless interpolating,
+          and postfix `if` guards only where they already are -- do not
+          suggest rewriting braced blocks.  Do not suggest Perl::Critic or
+          Moose-style idioms.
+    - path: "AI.cf"
+      instructions: |
+        User-facing configuration. Directives must be ones parse_config() in
+        AI/AI.pm accepts (ai_url, ai_max_size, ai_timeout, ai_user_agent,
+        ai_api_key, ai_language), and every rule defined in AI.pre has a
+        score here. An example value must be safe to copy as it stands.
+    - path: "AI.pre"
+      instructions: |
+        Rule definitions users are told not to touch. A rule named here must
+        exist as a score in AI.cf, and the eval's priority must run after
+        what it depends on.
+    - path: "README.md"
+      instructions: |
+        Installation steps must match the files the repository actually
+        has (AI.pre, AI.cf, the AI/ directory). A new configuration
+        directive deserves a mention here, since nothing else documents it.
+    - path: ".github/**"
+      instructions: |
+        Workflows keep the least token permissions they need, pin nothing to
+        a branch, and ci/check.sh stays plain /bin/sh working on Linux,
+        FreeBSD and macOS.
+
+  tools:
+    github-checks:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+# Read AGENTS.md as the repository's own guidelines when reviewing.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"

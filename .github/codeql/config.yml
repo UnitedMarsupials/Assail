@@ -1,0 +1,8 @@
+name: "Assail CodeQL config"
+
+# security-and-quality includes everything in security-extended.
+queries:
+  - uses: security-and-quality
+
+# Documentation for configuring CodeQL:
+# https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning
