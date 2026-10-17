@@ -10,7 +10,7 @@ jobs:
     name: Check (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -27,9 +27,9 @@ jobs:
     name: Check (FreeBSD)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: cross-platform-actions/action@v1.0.0
+      - uses: cross-platform-actions/action@v1.6.0
         with:
           operating_system: freebsd
           version: '14.2'
@@ -41,7 +41,7 @@ jobs:
     name: Check (macOS)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -55,7 +55,7 @@ jobs:
     name: Encoding check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: AI/AI.pm should be 7-bit ASCII
         run: |
