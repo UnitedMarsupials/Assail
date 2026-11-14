@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: cross-platform-actions/action@v1.6.0
+      - uses: cross-platform-actions/action@v1.7.0
         with:
           operating_system: freebsd
           version: '14.2'
